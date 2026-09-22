@@ -5,9 +5,14 @@ struct CityView: View {
     @EnvironmentObject private var env: AppEnvironment
     @State private var neighborhoods: [Neighborhood] = []
     @State private var places: [PlaceTeaser] = []
+    @State private var events: [EventItem] = []
     @State private var loading = true
 
     var freeCount: Int { places.filter { $0.isFreeExperience }.count }
+    var subtitle: String {
+        if places.isEmpty && !events.isEmpty { return "\(events.count)+ events on now" }
+        return "\(places.count) Secrets · \(freeCount) Free"
+    }
 
     var body: some View {
         ScrollView {
@@ -17,10 +22,27 @@ struct CityView: View {
                     LinearGradient(colors: [.clear, .black.opacity(0.8)], startPoint: .top, endPoint: .bottom)
                     VStack(alignment: .leading, spacing: 4) {
                         Text(city.title).font(.largeTitle.bold()).foregroundStyle(.white)
-                        Text("\(places.count) Secrets · \(freeCount) Free").font(.subheadline).foregroundStyle(.white.opacity(0.85))
+                        Text(subtitle).font(.subheadline).foregroundStyle(.white.opacity(0.85))
                     }.padding()
                 }
                 if let d = city.description { Text(d).font(.body).foregroundStyle(Theme.textMuted).padding(.horizontal, 14) }
+
+                if !events.isEmpty {
+                    HStack {
+                        SectionHeader(title: "Афіша in \(city.title)")
+                        Spacer()
+                        NavigationLink { EventsView(cityId: city.id) } label: {
+                            Text("See all").font(.subheadline).foregroundStyle(Theme.accent)
+                        }
+                    }.padding(.horizontal, 14)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 14) {
+                            ForEach(events) { e in
+                                NavigationLink(value: e) { EventCard(event: e).frame(width: 260) }.buttonStyle(.plain)
+                            }
+                        }.padding(.horizontal, 14)
+                    }
+                }
 
                 if !neighborhoods.isEmpty {
                     SectionHeader(title: "Explore by neighborhood").padding(.horizontal, 14)
@@ -62,8 +84,10 @@ struct CityView: View {
         env.analytics.track(.cityView(citySlug: city.slug))
         async let hoods = try? env.geo.neighborhoods(cityId: city.id)
         async let pl = try? env.places.list(PlaceQuery(cityId: city.id, limit: 100))
+        async let ev = try? env.events.upcoming(cityId: city.id, limit: 12)
         neighborhoods = await hoods ?? []
         places = await pl ?? []
+        events = await ev ?? []
         loading = false
     }
 }
