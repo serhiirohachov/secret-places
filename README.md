@@ -93,3 +93,9 @@ See the final report / `docs/ARCHITECTURE.md` §"Remaining configuration": Apple
 bundle id, Sign in with Apple key wired into Supabase Auth, App Store Connect IAP products, and
 `APPLE_VERIFY=strict` + Apple root certs on the `verify-purchase` function for production JWS
 verification.
+
+## Data attribution
+
+Seeded place data is derived from **OpenStreetMap** and is © **OpenStreetMap
+contributors**, under the **Open Database License (ODbL)**
+(https://www.openstreetmap.org/copyright). See `backend/supabase/DATA_SOURCES.md`.

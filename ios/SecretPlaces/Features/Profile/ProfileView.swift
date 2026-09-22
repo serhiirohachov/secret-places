@@ -121,6 +121,9 @@ struct PrivacyView: View {
                 Text("We collect the minimum needed to run Secret Places. Your saves, visits and unlocks are tied to your account so they sync across devices.")
                 Text("Location is optional. If you allow it, we use your position only to show nearby places — coarse, never precise, GPS is never sent to analytics.")
                 Text("You can clear your offline cache anytime, and deleting your account removes your personal data (profile, saves, visits, unlock records) from our database.")
+                Divider().padding(.vertical, 6)
+                Text("Place data © OpenStreetMap contributors, available under the Open Database License (ODbL).")
+                    .font(.footnote)
             }.foregroundStyle(Theme.textMuted).padding()
         }.background(Theme.bg).navigationTitle("Privacy")
     }
