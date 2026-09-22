@@ -306,7 +306,7 @@ async function fromJsonLd(src: any, ctx: Ctx): Promise<EventRow[]> {
 // Known Kyiv nightclubs / party venues — events here are nightlife even when a
 // ticketing feed tags them "concert". Underground venues + the venues that
 // actually appear in the RA / Concert.ua Kyiv feeds.
-const CLUB_VENUES = /closer|k41|∄|\botel|mezzanine|keller|\bmodule\b|модуль|plivka|плівка|hvlv|хвлв|\batlas\b|атлас|caribbean|кариб|confidance|конфіданс|some people|rhythm|брукст|brukxt|sentrum|сентрум|bel ?etage|indigo|індіго|skvot|сквот|closer|\bnag\b|нічний клуб|night ?club/i;
+const CLUB_VENUES = /closer|k41|∄|\botel|mezzanine|keller|\bmodule\b|модуль|plivka|плівка|hvlv|хвлв|\batlas\b|атлас|caribbean|кариб|confidance|конфіданс|some people|rhythm|брукст|brukxt|sentrum|сентрум|bel ?etage|indigo|індіго|skvot|сквот|volar|волар|kyrylivsk|кирилівськ|osoblyva|особлива зона|20\/20|keller|\bnag\b|нічний клуб|night ?club/i;
 function clubify(kind: string, venue: string | null): string {
   if (!venue) return kind;
   if (["concert", "music", "party", "other"].includes(kind) && CLUB_VENUES.test(venue)) return "club";
@@ -318,7 +318,7 @@ function clubify(kind: string, venue: string | null): string {
 const VENUE_CITY: [RegExp, string][] = [
   [/some people/i, "kharkiv"],
   [/\bitaka\b|аркад/i, "odesa"],
-  [/closer|k41|∄|\botel|mezzanine|keller|\bmodule\b|модуль|plivka|плівка|hvlv|хвлв|\batlas\b|атлас|caribbean|кариб|confidance|конфіданс|brukxt|брукст|rhythm|sentrum|bel ?etage|indigo|skvot/i, "kyiv"],
+  [/closer|k41|∄|\botel|mezzanine|keller|\bmodule\b|модуль|plivka|плівка|hvlv|хвлв|\batlas\b|атлас|caribbean|кариб|confidance|конфіданс|brukxt|брукст|rhythm|sentrum|bel ?etage|indigo|skvot|volar|волар|kyrylivsk|кирилівськ|osoblyva|особлива зона|20\/20/i, "kyiv"],
 ];
 function venueCitySlug(venue: string | null): string | null {
   if (!venue) return null;
