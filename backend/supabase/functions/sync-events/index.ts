@@ -92,7 +92,7 @@ async function fromResidentAdvisor(src: any, ctx: Ctx): Promise<EventRow[]> {
       const place = venueName ? ctx.placeBySlug.get(placeSlugForVenue(venueName) ?? "") : null;
       // Assign the city from the RA venue area (Kyiv / Lviv / Odesa / …).
       const areaName: string = (e.venue?.area?.name ?? "").toLowerCase();
-      const cityId = ctx.cityByKey.get(areaName) ?? ctx.cityId ?? null;
+      const cityId = resolveCity(venueName, ctx.cityByKey.get(areaName) ?? ctx.cityId ?? null, ctx);
       rows.push(mkEvent({
         slug: `ra-${e.id}`,
         title: e.title,
@@ -296,7 +296,7 @@ async function fromJsonLd(src: any, ctx: Ctx): Promise<EventRow[]> {
       currency: offers?.priceCurrency ?? "UAH",
       lineup: [],
       venue_name: venue ? String(venue).trim() : (src.venue_name ?? null),
-      place, cityId: ctx.cityId, source: "jsonld",
+      place, cityId: resolveCity(venue ? String(venue) : null, ctx.cityId, ctx), source: "jsonld",
     }));
   }
   return rows;
@@ -311,6 +311,23 @@ function clubify(kind: string, venue: string | null): string {
   if (!venue) return kind;
   if (["concert", "music", "party", "other"].includes(kind) && CLUB_VENUES.test(venue)) return "club";
   return kind;
+}
+
+// Precise venue -> city overrides (highest priority): fixes feeds that put a
+// venue in the wrong city (e.g. RA tagging Kharkiv's "Some People" as Kyiv).
+const VENUE_CITY: [RegExp, string][] = [
+  [/some people/i, "kharkiv"],
+  [/\bitaka\b|аркад/i, "odesa"],
+  [/closer|k41|∄|\botel|mezzanine|keller|\bmodule\b|модуль|plivka|плівка|hvlv|хвлв|\batlas\b|атлас|caribbean|кариб|confidance|конфіданс|brukxt|брукст|rhythm|sentrum|bel ?etage|indigo|skvot/i, "kyiv"],
+];
+function venueCitySlug(venue: string | null): string | null {
+  if (!venue) return null;
+  for (const [re, slug] of VENUE_CITY) if (re.test(venue)) return slug;
+  return null;
+}
+function resolveCity(venue: string | null, fallback: string | null, ctx: Ctx): string | null {
+  const slug = venueCitySlug(venue);
+  return (slug && ctx.cityByKey.get(slug)) || fallback;
 }
 
 type Ctx = { cityId: string | null; placeBySlug: Map<string, any>; cityByKey: Map<string, string>; pages: number };
