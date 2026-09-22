@@ -78,16 +78,21 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
+  const db = createClient(SUPABASE_URL, SERVICE_ROLE);
+
   // Shared-secret gate — never expose the writer to anonymous callers.
-  // Accept a dedicated SYNC_SECRET, or the service-role key (used by cron).
+  // Accept a dedicated SYNC_SECRET, the service-role key, or the rotatable
+  // secret stored in Vault (used by the pg_cron schedule).
   const provided = req.headers.get("x-sync-secret") ?? "";
-  const authed = (SYNC_SECRET && provided === SYNC_SECRET) || (provided && provided === SERVICE_ROLE);
+  let authed = (SYNC_SECRET && provided === SYNC_SECRET) || (provided !== "" && provided === SERVICE_ROLE);
+  if (!authed && provided !== "") {
+    const { data: ok } = await db.rpc("check_sync_secret", { p: provided });
+    authed = ok === true;
+  }
   if (!authed) return json({ error: "unauthorized" }, 401);
 
   const opts = await req.json().catch(() => ({}));
   const pages = Math.min(Math.max(Number(opts.pages ?? 3), 1), 8);
-
-  const db = createClient(SUPABASE_URL, SERVICE_ROLE);
 
   // City + curated place coordinates for venue linking.
   const { data: city } = await db.from("cities").select("id").eq("slug", "kyiv").maybeSingle();
