@@ -51,7 +51,7 @@ function placeSlugForVenue(name: string): string | null {
 // ---- Resident Advisor provider ----
 const RA_QUERY = `query GET_EVENT_LISTINGS($filters: FilterInputDtoInput, $pageSize: Int, $page: Int) {
   eventListings(filters: $filters, pageSize: $pageSize, page: $page) {
-    data { event { id title startTime endTime images { filename } venue { name } artists { name } } }
+    data { event { id title startTime endTime images { filename } venue { name area { name } } artists { name } } }
   }
 }`;
 
@@ -90,6 +90,9 @@ async function fromResidentAdvisor(src: any, ctx: Ctx): Promise<EventRow[]> {
       seen.add(e.id);
       const venueName: string | null = e.venue?.name ?? null;
       const place = venueName ? ctx.placeBySlug.get(placeSlugForVenue(venueName) ?? "") : null;
+      // Assign the city from the RA venue area (Kyiv / Lviv / Odesa / …).
+      const areaName: string = (e.venue?.area?.name ?? "").toLowerCase();
+      const cityId = ctx.cityByKey.get(areaName) ?? ctx.cityId ?? null;
       rows.push(mkEvent({
         slug: `ra-${e.id}`,
         title: e.title,
@@ -100,7 +103,7 @@ async function fromResidentAdvisor(src: any, ctx: Ctx): Promise<EventRow[]> {
         ticket_url: `https://ra.co/events/${e.id}`,
         lineup: (e.artists ?? []).map((a: any) => a.name).filter(Boolean),
         venue_name: venueName ?? src.venue_name ?? null,
-        place, cityId: ctx.cityId, source: "resident_advisor",
+        place, cityId, source: "resident_advisor",
       }));
     }
   }
@@ -240,6 +243,10 @@ function inferKind(name: string, atType: string, fallback: string): string {
   if (/фестивал/.test(n)) return "festival";
   if (/виставк|exhibition/.test(n)) return "exhibition";
   if (/кіно|показ фільму|\bfilm\b/.test(n)) return "film";
+  // Only strong, unambiguous nightlife signals (avoid mislabeling plays/
+  // concerts). concert.ua is mostly concerts/theatre; RA is the real
+  // nightlife source and is already tagged 'rave' by its own provider.
+  if (/\btechno\b|техно[- ]?(?:сет|вечір|rave|party)|\brave\b|рейв|afterparty|\bdj[- ]?set\b|діджей[- ]?сет|drum ?[&n] ?bass/.test(n)) return "club";
   if (atType.includes("Music") || /концерт|\blive\b|гурт|tribute/.test(n)) return "concert";
   return fallback;
 }
@@ -296,7 +303,7 @@ async function fromJsonLd(src: any, ctx: Ctx): Promise<EventRow[]> {
 }
 
 // ---- shared row builder ----
-type Ctx = { cityId: string | null; placeBySlug: Map<string, any>; pages: number };
+type Ctx = { cityId: string | null; placeBySlug: Map<string, any>; cityByKey: Map<string, string>; pages: number };
 function mkEvent(o: any): EventRow {
   const place = o.place ?? null;
   return {
@@ -341,8 +348,16 @@ Deno.serve(async (req) => {
   const opts = await req.json().catch(() => ({}));
   const pages = Math.min(Math.max(Number(opts.pages ?? 3), 1), 8);
 
-  const { data: cities } = await db.from("cities").select("id, slug");
+  const { data: cities } = await db.from("cities").select("id, slug, title");
   const cityIdBySlug = new Map((cities ?? []).map((c: any) => [c.slug, c.id]));
+  // Resolve a city by its slug OR its English title (e.g. RA's venue area "Lviv").
+  const cityByKey = new Map<string, string>();
+  for (const c of cities ?? []) {
+    cityByKey.set(String(c.slug).toLowerCase(), c.id);
+    if (c.title) cityByKey.set(String(c.title).toLowerCase(), c.id);
+  }
+  const odesaId = cityByKey.get("odesa");
+  if (odesaId) cityByKey.set("odessa", odesaId);   // RA sometimes spells it Odessa
   const { data: places } = await db.from("places").select("id, slug, approx_lat, approx_lng");
   const placeBySlug = new Map((places ?? []).map((p: any) => [p.slug, p]));
 
@@ -352,7 +367,7 @@ Deno.serve(async (req) => {
   const all: EventRow[] = [];
   const perSource: any[] = [];
   for (const src of sources) {
-    const ctx: Ctx = { cityId: cityIdBySlug.get(src.city_slug) ?? null, placeBySlug, pages };
+    const ctx: Ctx = { cityId: cityIdBySlug.get(src.city_slug) ?? null, placeBySlug, cityByKey, pages };
     let rows: EventRow[] = [];
     let err: string | null = null;
     try {
