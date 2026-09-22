@@ -234,7 +234,10 @@ struct EventDetailView: View {
 
     private var ticketBar: some View {
         Button {
-            if let s = event.ticketUrl, let u = URL(string: s) { openURL(u) }
+            if let s = event.ticketUrl,
+               let u = URL(string: s) ?? URL(string: s.replacingOccurrences(of: " ", with: "%20")) {
+                openURL(u)
+            }
         } label: {
             Label("Get tickets", systemImage: "ticket.fill")
                 .font(.headline).frame(maxWidth: .infinity).padding(.vertical, 14)

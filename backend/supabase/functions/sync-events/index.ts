@@ -23,7 +23,7 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SYNC_SECRET = Deno.env.get("SYNC_SECRET") ?? "";
 
 const RA_ENDPOINT = "https://ra.co/graphql";
-const SYNCED_SOURCES = ["resident_advisor", "ics"]; // events we own & may retire
+const SYNCED_SOURCES = ["resident_advisor", "ics", "molodyy"]; // events we own & may retire
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -178,6 +178,52 @@ async function fromICS(src: any, ctx: Ctx): Promise<EventRow[]> {
   return rows;
 }
 
+// ---- Molodyy Theatre provider (server-rendered HTML, per-theatre parser) ----
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&#0?39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&")
+    .replace(/&laquo;/g, "«").replace(/&raquo;/g, "»").replace(/&mdash;/g, "—").replace(/&nbsp;/g, " ")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n));
+}
+async function getText(url: string): Promise<string> {
+  const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (SecretPlaces event sync)", "Accept-Language": "uk" } });
+  if (!res.ok) throw new Error(`http ${res.status}`);
+  return await res.text();
+}
+async function fromMolodyy(src: any, ctx: Ctx): Promise<EventRow[]> {
+  const base = String(src.config?.base ?? "https://molodyytheatre.com");
+  const today = new Date().toISOString().slice(0, 10);
+  const main = await getText(`${base}/afisha`);
+  const days = [...new Set([...main.matchAll(/\/afisha\/(\d{4}-\d{2}-\d{2})/g)].map((m) => m[1]))]
+    .filter((d) => d >= today).sort().slice(0, 40);
+  const rows: EventRow[] = [];
+  const seen = new Set<string>();
+  for (const d of days) {
+    let html = "";
+    try { html = await getText(`${base}/afisha/${d}`); } catch { continue; }
+    for (const b of html.split('class="views-row').slice(1)) {
+      const blk = b.slice(0, 4000);
+      const mt = blk.match(/\/tickets\/(\d+)\/(\d{4}-\d{2}-\d{2})(?:%20|\s)(\d{2})(?:%3A|:)(\d{2})/);
+      if (!mt) continue;
+      const [, pid, date, hh, mm] = mt;
+      const mtl = blk.match(/views-field-field-event-title[\s\S]*?<div class="field-content">([\s\S]*?)<\/div>/);
+      const title = mtl ? decodeEntities(mtl[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()) : "";
+      if (!title) continue;
+      const slug = `molodyy-${pid}-${date}`;
+      if (seen.has(slug)) continue;
+      seen.add(slug);
+      rows.push(mkEvent({
+        slug, title, kind: src.kind ?? "theatre",
+        starts_at: `${date}T${hh}:${mm}:00+03:00`, ends_at: null, poster_url: null,
+        ticket_url: `${base}/tickets/${pid}/${date} ${hh}:${mm}:00`,
+        lineup: [], venue_name: src.venue_name ?? "Молодий театр",
+        place: null, venueLat: 50.45, venueLng: 30.52, cityId: ctx.cityId, source: "molodyy",
+      }));
+    }
+  }
+  return rows;
+}
+
 function slugifyId(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || crypto.randomUUID();
 }
@@ -202,8 +248,8 @@ function mkEvent(o: any): EventRow {
     is_free: false,
     lineup: o.lineup ?? [],
     venue_name: o.venue_name ?? null,
-    venue_lat: place?.approx_lat ?? null,
-    venue_lng: place?.approx_lng ?? null,
+    venue_lat: place?.approx_lat ?? o.venueLat ?? null,
+    venue_lng: place?.approx_lng ?? o.venueLng ?? null,
     featured: false,
     status: "published",
     source: o.source,
@@ -245,6 +291,7 @@ Deno.serve(async (req) => {
     try {
       if (src.provider === "resident_advisor") rows = await fromResidentAdvisor(src, ctx);
       else if (src.provider === "ics") rows = await fromICS(src, ctx);
+      else if (src.provider === "molodyy") rows = await fromMolodyy(src, ctx);
       else err = `unknown provider ${src.provider}`;
     } catch (e) { err = String(e); }
     // De-dupe within a source by slug.
