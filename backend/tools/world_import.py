@@ -2,9 +2,11 @@
 # Reusable OSM importer: turns (city, center) into curated Secret Places SQL.
 import json, urllib.request, urllib.parse, time, hashlib, re, sys
 
+# Overpass mirrors — EU only. Never use Russian-hosted services.
 MIRRORS=["https://overpass-api.de/api/interpreter",
          "https://overpass.kumi.systems/api/interpreter",
-         "https://maps.mail.ru/osm/tools/overpass/api/interpreter"]
+         "https://overpass.private.coffee/api/interpreter",
+         "https://overpass.osm.ch/api/interpreter"]
 UA="SecretPlaces/1.0 (world seed)"
 
 CATID={'viewpoints':'53563598-2466-4347-981e-004b31a9efba','bars':'07912007-6a3f-4034-b067-e3438649de72',
