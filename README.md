@@ -75,6 +75,8 @@ psql "$DATABASE_URL" -f backend/supabase/migrations/0002_rls_and_public_view.sql
 psql "$DATABASE_URL" -f backend/supabase/migrations/0005_hardening.sql
 psql "$DATABASE_URL" -f backend/supabase/migrations/0006_revoke_internal_fn_public.sql
 psql "$DATABASE_URL" -f backend/supabase/migrations/0004_seed.sql
+psql "$DATABASE_URL" -f backend/supabase/migrations/0007_place_source.sql
+psql "$DATABASE_URL" -f backend/supabase/migrations/0008_real_places_osm.sql
 supabase functions deploy verify-purchase
 supabase functions deploy delete-account
 ```
