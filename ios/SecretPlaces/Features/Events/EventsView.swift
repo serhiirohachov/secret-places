@@ -22,6 +22,17 @@ struct EventsView: View {
     var cityId: String? = nil
     @EnvironmentObject private var env: AppEnvironment
     @StateObject private var vm = EventsViewModel()
+    @State private var kindFilter: String? = nil
+
+    /// Distinct kinds present, ordered by how common they are.
+    private var kinds: [String] {
+        let counts = Dictionary(grouping: vm.events, by: { $0.kind }).mapValues(\.count)
+        return counts.keys.sorted { (counts[$0] ?? 0, $1) > (counts[$1] ?? 0, $0) }
+    }
+    private var filtered: [EventItem] {
+        guard let k = kindFilter else { return vm.events }
+        return vm.events.filter { $0.kind == k }
+    }
 
     var body: some View {
         ScrollView {
@@ -34,7 +45,8 @@ struct EventsView: View {
                     if vm.events.isEmpty {
                         EmptyStateView(icon: "ticket", title: "No events yet", message: "New posters land here as the city wakes up.")
                     } else {
-                        ForEach(vm.events) { event in
+                        if kinds.count > 1 { kindChips }
+                        ForEach(filtered) { event in
                             NavigationLink(value: event) {
                                 EventCard(event: event).padding(.horizontal, 14)
                             }.buttonStyle(.plain)
@@ -48,6 +60,74 @@ struct EventsView: View {
         .navigationTitle("Афіша")
         .withAppDestinations()
         .task { if case .idle = vm.state { await vm.load(env, cityId: cityId) } }
+    }
+
+    private var kindChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                chip(title: "All", icon: "square.grid.2x2", active: kindFilter == nil) { kindFilter = nil }
+                ForEach(kinds, id: \.self) { k in
+                    chip(title: EventKind.label(k), icon: EventKind.icon(k), active: kindFilter == k) {
+                        kindFilter = (kindFilter == k) ? nil : k
+                    }
+                }
+            }.padding(.horizontal, 14)
+        }
+    }
+
+    private func chip(title: String, icon: String, active: Bool, _ tap: @escaping () -> Void) -> some View {
+        Button(action: tap) {
+            HStack(spacing: 6) { Image(systemName: icon); Text(title) }
+                .font(.subheadline.weight(.medium))
+                .padding(.horizontal, 14).padding(.vertical, 9)
+                .background(active ? Theme.accent : Theme.surface)
+                .foregroundStyle(active ? .black : Theme.text)
+                .clipShape(Capsule())
+        }.buttonStyle(.plain)
+    }
+}
+
+/// Display metadata for the event taxonomy (labels + SF Symbols).
+enum EventKind {
+    static func label(_ k: String) -> String {
+        switch k {
+        case "rave": return "Raves"
+        case "club": return "Club"
+        case "concert", "gig", "music": return "Live music"
+        case "party": return "Parties"
+        case "theatre": return "Theatre"
+        case "standup": return "Stand-up"
+        case "film": return "Film"
+        case "exhibition", "art": return "Art"
+        case "food": return "Gastro"
+        case "market", "fair": return "Markets"
+        case "festival": return "Festivals"
+        case "sport": return "Sport"
+        case "kids": return "Kids"
+        case "tour": return "Tours"
+        case "workshop": return "Workshops"
+        case "talk": return "Talks"
+        default: return "More"
+        }
+    }
+    static func icon(_ k: String) -> String {
+        switch k {
+        case "rave", "club", "party": return "waveform"
+        case "concert", "gig", "music": return "music.mic"
+        case "theatre": return "theatermasks"
+        case "standup": return "mic"
+        case "film": return "film"
+        case "exhibition", "art": return "paintpalette"
+        case "food": return "fork.knife"
+        case "market", "fair": return "bag"
+        case "festival": return "flag"
+        case "sport": return "sportscourt"
+        case "kids": return "figure.and.child.holdinghands"
+        case "tour": return "figure.walk"
+        case "workshop": return "hammer"
+        case "talk": return "bubble.left.and.bubble.right"
+        default: return "sparkles"
+        }
     }
 }
 
