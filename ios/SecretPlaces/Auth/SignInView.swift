@@ -29,14 +29,6 @@ struct SignInView: View {
             .frame(height: 52).clipShape(RoundedRectangle(cornerRadius: 12)).padding(.horizontal)
 
             Button("Continue as guest") { dismiss() }.tint(Theme.textMuted).padding(.bottom)
-            #if DEBUG
-            Button("Dev sign in (test)") {
-                Task {
-                    do { try await auth.devSignIn(); await env.refreshUserState(); await env.entitlements.refresh(); dismiss() }
-                    catch { self.error = (error as? AppError)?.errorDescription ?? error.localizedDescription }
-                }
-            }.font(.footnote).tint(Theme.accent)
-            #endif
             if let error { Text(error).font(.footnote).foregroundStyle(.red) }
         }
         .padding()

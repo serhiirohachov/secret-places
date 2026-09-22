@@ -76,27 +76,6 @@ final class AuthStore: ObservableObject, AuthServicing {
         apply(s)
     }
 
-    #if DEBUG
-    /// DEBUG-only email/password sign-in for local testing of the full purchase
-    /// flow without the Apple provider configured. Not compiled into release.
-    func devSignIn(email: String = "dev@secretplaces.app", password: String = "devpass123") async throws {
-        var comps = URLComponents(url: Config.authURL.appendingPathComponent("token"), resolvingAgainstBaseURL: false)!
-        comps.queryItems = [URLQueryItem(name: "grant_type", value: "password")]
-        var req = URLRequest(url: comps.url!)
-        req.httpMethod = "POST"
-        req.setValue(Config.supabaseAnonKey, forHTTPHeaderField: "apikey")
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try JSONSerialization.data(withJSONObject: ["email": email, "password": password])
-        let (data, resp) = try await URLSession.shared.data(for: req)
-        guard let http = resp as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw AppError.server(status: (resp as? HTTPURLResponse)?.statusCode ?? -1, message: String(data: data, encoding: .utf8) ?? "dev auth failed")
-        }
-        let decoder = JSONDecoder(); decoder.keyDecodingStrategy = .convertFromSnakeCase
-        let tr = try decoder.decode(TokenResponse.self, from: data)
-        apply(AuthSession(accessToken: tr.accessToken, refreshToken: tr.refreshToken, userId: tr.user.id, email: tr.user.email))
-    }
-    #endif
-
     func signOut() {
         session = nil
         tokens.set(token: nil, userId: nil)
