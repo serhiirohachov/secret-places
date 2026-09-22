@@ -1,26 +1,39 @@
 import SwiftUI
 
 /// Placeholder-safe remote image (neutral placeholder — never a fake photo of a real place).
+/// The frame drives the layout size; the image is an overlay that fills and is clipped,
+/// so a wide poster can never widen the card or push sibling content out of bounds.
 struct RemoteImage: View {
     let url: String?
     var height: CGFloat = 180
+
+    private var placeholder: some View {
+        LinearGradient(colors: [Theme.surface2, Theme.surface], startPoint: .topLeading, endPoint: .bottomTrailing)
+            .overlay { Image(systemName: "photo").font(.title2).foregroundStyle(Theme.textMuted.opacity(0.55)) }
+    }
+
     var body: some View {
-        ZStack {
-            LinearGradient(colors: [Theme.surface2, Theme.surface], startPoint: .topLeading, endPoint: .bottomTrailing)
-            if let s = url, let u = URL(string: s) {
-                AsyncImage(url: u) { phase in
-                    switch phase {
-                    case .success(let img): img.resizable().scaledToFill()
-                    default: Image(systemName: "mappin.and.ellipse").font(.title).foregroundStyle(Theme.textMuted)
+        // GeometryReader gives the exact available width; the content is framed to
+        // EXACTLY that width × height and clipped, so a fill-scaled remote image can
+        // never overflow horizontally and shove sibling content off-screen.
+        GeometryReader { geo in
+            Group {
+                if let s = url, let u = URL(string: s) {
+                    AsyncImage(url: u) { phase in
+                        switch phase {
+                        case .success(let img): img.resizable().scaledToFill()
+                        case .empty: placeholder.overlay { ProgressView().tint(Theme.textMuted) }
+                        default: placeholder
+                        }
                     }
+                } else {
+                    placeholder
                 }
-            } else {
-                Image(systemName: "mappin.and.ellipse").font(.title).foregroundStyle(Theme.textMuted)
             }
+            .frame(width: geo.size.width, height: height)
+            .clipped()
         }
         .frame(height: height)
-        .frame(maxWidth: .infinity)
-        .clipped()
     }
 }
 
