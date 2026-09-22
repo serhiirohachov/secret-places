@@ -13,6 +13,8 @@ final class SupabaseClient: @unchecked Sendable {
     private weak var sessionProvider: SessionProviding?
     let decoder: JSONDecoder
     let encoder: JSONEncoder
+    /// Invoked on a 401 to refresh auth (or fall back to anon). Returns true to retry once.
+    var onUnauthorized: (@Sendable () async -> Bool)?
 
     init(session: URLSession = .shared, sessionProvider: SessionProviding? = nil) {
         self.session = session
@@ -95,10 +97,16 @@ final class SupabaseClient: @unchecked Sendable {
         catch { throw AppError.decoding(String(describing: error)) }
     }
 
-    private func runData(_ req: URLRequest) async throws -> Data {
+    private func runData(_ req: URLRequest, allowRetry: Bool = true) async throws -> Data {
         do {
             let (data, resp) = try await session.data(for: req)
             guard let http = resp as? HTTPURLResponse else { throw AppError.network("no response") }
+            if http.statusCode == 401, allowRetry, let handler = onUnauthorized, await handler() {
+                var retry = req
+                let token = sessionProvider?.accessToken ?? Config.supabaseAnonKey
+                retry.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+                return try await runData(retry, allowRetry: false)
+            }
             guard (200..<300).contains(http.statusCode) else {
                 let msg = String(data: data, encoding: .utf8) ?? ""
                 throw AppError.server(status: http.statusCode, message: msg)

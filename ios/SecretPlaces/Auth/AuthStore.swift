@@ -82,6 +82,31 @@ final class AuthStore: ObservableObject, AuthServicing {
         UserDefaults.standard.removeObject(forKey: defaultsKey)
     }
 
+    /// Called on a 401. Tries to refresh the access token with the refresh token;
+    /// if that fails (e.g. revoked), signs out so the client falls back to anon.
+    /// Returns true when a retry should be attempted (with a fresh or anon token).
+    func refreshSession() async -> Bool {
+        guard let refreshToken = session?.refreshToken else { return false }
+        var comps = URLComponents(url: Config.authURL.appendingPathComponent("token"), resolvingAgainstBaseURL: false)!
+        comps.queryItems = [URLQueryItem(name: "grant_type", value: "refresh_token")]
+        var req = URLRequest(url: comps.url!)
+        req.httpMethod = "POST"
+        req.setValue(Config.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: ["refresh_token": refreshToken])
+        do {
+            let (data, resp) = try await URLSession.shared.data(for: req)
+            guard let http = resp as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { throw AppError.notAuthenticated }
+            let decoder = JSONDecoder(); decoder.keyDecodingStrategy = .convertFromSnakeCase
+            let tr = try decoder.decode(TokenResponse.self, from: data)
+            apply(AuthSession(accessToken: tr.accessToken, refreshToken: tr.refreshToken, userId: tr.user.id, email: tr.user.email))
+            return true
+        } catch {
+            signOut()   // dead session → continue as guest
+            return true
+        }
+    }
+
     private func apply(_ s: AuthSession) {
         session = s
         tokens.set(token: s.accessToken, userId: s.userId)

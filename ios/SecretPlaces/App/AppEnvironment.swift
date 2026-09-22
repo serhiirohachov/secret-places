@@ -36,6 +36,9 @@ final class AppEnvironment: ObservableObject {
         self.client = client
         self.analytics = analytics
 
+        // On a 401, refresh the token (or fall back to anon) and retry once.
+        client.onUnauthorized = { [weak auth] in await auth?.refreshSession() ?? false }
+
         self.places = SupabasePlaceRepository(client: client)
         self.geo = SupabaseGeoRepository(client: client)
         self.categoriesRepo = SupabaseCategoryRepository(client: client)
