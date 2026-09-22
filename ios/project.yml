@@ -1,0 +1,52 @@
+name: SecretPlaces
+options:
+  bundleIdPrefix: com.secretplaces
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+    GENERATE_INFOPLIST_FILE: YES
+
+targets:
+  SecretPlaces:
+    type: application
+    platform: iOS
+    sources:
+      - path: SecretPlaces
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.secretplaces.app
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Secret Places uses your location to show hidden places near you. Location is optional — you can browse by city instead."
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown"
+        CODE_SIGNING_ALLOWED: NO
+    entitlements:
+      path: SecretPlaces/Resources/SecretPlaces.entitlements
+      properties:
+        com.apple.developer.applesignin:
+          - Default
+    scheme:
+      testTargets:
+        - SecretPlacesTests
+      storeKitConfiguration: SecretPlaces/Support/SecretPlaces.storekit
+
+  SecretPlacesTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: SecretPlacesTests
+      - path: SecretPlaces/Support/SecretPlaces.storekit
+        buildPhase: resources
+    dependencies:
+      - target: SecretPlaces
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.secretplaces.app.tests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGNING_ALLOWED: NO

@@ -1,0 +1,12 @@
+# Xcode / build
+ios/SecretPlaces.xcodeproj/
+ios/build/
+DerivedData/
+*.xcuserstate
+.DS_Store
+# Secrets
+.env
+.env.local
+# Supabase
+backend/supabase/.branches/
+backend/supabase/.temp/
