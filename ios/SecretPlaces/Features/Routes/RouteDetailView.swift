@@ -120,15 +120,25 @@ struct RouteDetailView: View {
                 if stop.locked { Image(systemName: "lock.fill").font(.caption2).foregroundStyle(Theme.locked) }
                 else { Text("\(idx + 1)").font(.caption.bold()).foregroundStyle(Theme.accent) }
             }
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 5) {
                 Text(stop.displayTitle).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.text)
                 if !stop.locked, let biz = stop.businessName, biz != stop.displayTitle {
                     Text(biz).font(.caption).foregroundStyle(Theme.textMuted)
                 }
                 Text(stop.locked ? stop.teaserDescription : (stop.note ?? stop.teaserDescription))
                     .font(.caption).foregroundStyle(Theme.textMuted).lineLimit(2)
+                if stop.locked {
+                    if stop.requiresPassword {
+                        Label("Password at the door", systemImage: "key.fill")
+                            .font(.caption2.weight(.medium)).foregroundStyle(Theme.locked)
+                    }
+                } else if let pw = stop.entryPassword, !pw.isEmpty {
+                    DoorWordCard(password: pw, note: stop.entryNote, compact: true).padding(.top, 2)
+                } else if let note = stop.entryNote, !note.isEmpty {
+                    Text(note).font(.caption2).foregroundStyle(Theme.accent.opacity(0.9))
+                }
             }
-            Spacer()
+            Spacer(minLength: 0)
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)

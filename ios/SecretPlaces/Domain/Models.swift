@@ -147,6 +147,7 @@ struct PlaceDetails: Codable, Equatable, Identifiable, Sendable {
     let editorsChoice: Bool
     let images: [PlaceImage]
     let tags: [String]
+    let hasEntryPassword: Bool?
 
     // SENSITIVE — only when unlocked
     let fullTitle: String?
@@ -161,10 +162,13 @@ struct PlaceDetails: Codable, Equatable, Identifiable, Sendable {
     let photoSpot: String?
     let website: String?
     let bookingUrl: String?
+    let entryPassword: String?
+    let entryNote: String?
     let appleMapsUrl: String?
     let googleMapsUrl: String?
 
     var isUnlocked: Bool { !locked }
+    var requiresPassword: Bool { hasEntryPassword ?? false }
     var exactCoordinate: CLLocationCoordinate2D? {
         guard let la = exactLat, let ln = exactLng else { return nil }
         return CLLocationCoordinate2D(latitude: la, longitude: ln)
@@ -268,11 +272,15 @@ struct RouteStop: Codable, Equatable, Sendable {
     let approxLng: Double?
     let primaryCategoryId: String?
     let locked: Bool
+    let hasEntryPassword: Bool?
     let fullTitle: String?
     let exactLat: Double?
     let exactLng: Double?
     let businessName: String?
+    let entryPassword: String?
+    let entryNote: String?
 
+    var requiresPassword: Bool { hasEntryPassword ?? false }
     var displayTitle: String { locked ? teaserTitle : (fullTitle ?? teaserTitle) }
     var exactCoordinate: CLLocationCoordinate2D? {
         guard let la = exactLat, let ln = exactLng else { return nil }

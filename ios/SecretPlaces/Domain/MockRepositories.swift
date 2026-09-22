@@ -45,7 +45,7 @@ final class MockPlaceRepository: PlaceRepository, @unchecked Sendable {
             crowdLevel: t.crowdLevel, priceLevel: t.priceLevel, accessibilityInfo: t.accessibilityInfo,
             safetyInfo: t.safetyInfo, mobileSignal: t.mobileSignal, whatToBring: t.whatToBring,
             rating: t.rating, ratingsCount: t.ratingsCount, featured: t.featured, editorsChoice: t.editorsChoice,
-            images: [], tags: unlocked ? ["hidden","local"] : [],
+            images: [], tags: unlocked ? ["hidden","local"] : [], hasEntryPassword: true,
             // SENSITIVE — present ONLY when unlocked (mirrors the server)
             fullTitle: unlocked ? s?.fullTitle : nil,
             fullDescription: unlocked ? s?.fullDesc : nil,
@@ -55,7 +55,10 @@ final class MockPlaceRepository: PlaceRepository, @unchecked Sendable {
             businessName: unlocked ? s?.business : nil,
             walkingInstructions: unlocked ? "Through the arch, keep left." : nil,
             parkingInfo: nil, insiderTips: unlocked ? "Go early." : nil, photoSpot: nil,
-            website: nil, bookingUrl: nil, appleMapsUrl: nil, googleMapsUrl: nil)
+            website: nil, bookingUrl: nil,
+            entryPassword: unlocked ? "the gate is the sign" : nil,
+            entryNote: unlocked ? "Face control at the gate." : nil,
+            appleMapsUrl: nil, googleMapsUrl: nil)
     }
 
     func nearby(lat: Double, lng: Double, radiusM: Double, limit: Int) async throws -> [NearbyPlace] {

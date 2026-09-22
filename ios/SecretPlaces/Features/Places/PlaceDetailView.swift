@@ -134,6 +134,7 @@ struct PlaceDetailView: View {
             }
             Text("Unlock to reveal the exact location, directions, the full guide and insider tips.")
                 .font(.subheadline).foregroundStyle(Theme.textMuted)
+            if d.requiresPassword { PasswordLockedHint() }
             approxMap(d)
             Button {
                 if auth.isSignedIn { Task { await vm.unlock(env, purchases: purchases) } }
@@ -157,6 +158,11 @@ struct PlaceDetailView: View {
 
     private func unlockedGuide(_ d: PlaceDetails) -> some View {
         VStack(alignment: .leading, spacing: 16) {
+            if let pw = d.entryPassword, !pw.isEmpty {
+                DoorWordCard(password: pw, note: d.entryNote)
+            } else if let note = d.entryNote, !note.isEmpty {
+                infoBlock("At the door", note)
+            }
             exactMap(d)
             HStack(spacing: 12) {
                 if let c = d.exactCoordinate {

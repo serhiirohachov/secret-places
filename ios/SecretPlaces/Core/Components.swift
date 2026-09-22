@@ -81,6 +81,44 @@ struct PlaceCard: View {
     }
 }
 
+/// Revealed "door word" for password-entry venues (shown only after unlock).
+struct DoorWordCard: View {
+    let password: String
+    var note: String? = nil
+    var compact: Bool = false
+    var body: some View {
+        VStack(alignment: .leading, spacing: compact ? 6 : 10) {
+            Label("Password at the door", systemImage: "key.fill")
+                .font(.caption.weight(.semibold)).foregroundStyle(Theme.accent)
+            Text("“\(password)”")
+                .font(compact ? .headline : .title3.weight(.semibold))
+                .foregroundStyle(Theme.text).textSelection(.enabled)
+            if let note, !note.isEmpty {
+                Text(note).font(.caption).foregroundStyle(Theme.textMuted)
+            }
+            Text("A curated hint — always be respectful at the door.")
+                .font(.caption2).foregroundStyle(Theme.textMuted.opacity(0.8))
+        }
+        .padding(compact ? 12 : 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.accent.opacity(0.10))
+        .overlay(RoundedRectangle(cornerRadius: Theme.corner).stroke(Theme.accent.opacity(0.4), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.corner, style: .continuous))
+    }
+}
+
+/// Teaser hint that a locked venue is password-gated.
+struct PasswordLockedHint: View {
+    var body: some View {
+        Label("Password required at the door — revealed when you unlock", systemImage: "key.horizontal.fill")
+            .font(.caption.weight(.medium)).foregroundStyle(Theme.locked)
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.locked.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
 struct SectionHeader: View {
     let title: String
     var subtitle: String? = nil
