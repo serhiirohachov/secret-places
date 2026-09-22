@@ -303,6 +303,16 @@ async function fromJsonLd(src: any, ctx: Ctx): Promise<EventRow[]> {
 }
 
 // ---- shared row builder ----
+// Known Kyiv nightclubs / party venues — events here are nightlife even when a
+// ticketing feed tags them "concert". Underground venues + the venues that
+// actually appear in the RA / Concert.ua Kyiv feeds.
+const CLUB_VENUES = /closer|k41|∄|\botel|mezzanine|keller|\bmodule\b|модуль|plivka|плівка|hvlv|хвлв|\batlas\b|атлас|caribbean|кариб|confidance|конфіданс|some people|rhythm|брукст|brukxt|sentrum|сентрум|bel ?etage|indigo|індіго|skvot|сквот|closer|\bnag\b|нічний клуб|night ?club/i;
+function clubify(kind: string, venue: string | null): string {
+  if (!venue) return kind;
+  if (["concert", "music", "party", "other"].includes(kind) && CLUB_VENUES.test(venue)) return "club";
+  return kind;
+}
+
 type Ctx = { cityId: string | null; placeBySlug: Map<string, any>; cityByKey: Map<string, string>; pages: number };
 function mkEvent(o: any): EventRow {
   const place = o.place ?? null;
@@ -310,7 +320,7 @@ function mkEvent(o: any): EventRow {
     slug: o.slug,
     title: o.title,
     description: o.description ?? null,
-    kind: o.kind,
+    kind: clubify(o.kind, o.venue_name ?? null),
     city_id: o.cityId,
     place_id: place?.id ?? null,
     starts_at: o.starts_at,
