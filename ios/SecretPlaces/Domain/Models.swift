@@ -202,3 +202,102 @@ struct NearbyPlace: Codable, Equatable, Identifiable, Sendable {
 }
 
 enum PlaceUserStatus: String, Codable, Sendable { case wantToVisit = "want_to_visit", visited }
+
+// MARK: - Events
+
+struct EventItem: Codable, Equatable, Hashable, Identifiable, Sendable {
+    let id: String
+    let slug: String
+    let title: String
+    let description: String?
+    let kind: String
+    let startsAt: Date
+    let endsAt: Date?
+    let posterUrl: String?
+    let ticketUrl: String?
+    let priceFromCents: Int?
+    let currency: String
+    let isFree: Bool
+    let lineup: [String]
+    let featured: Bool
+    let cityId: String?
+    let placeId: String?
+    let venueTeaser: String?
+    let venueApproxLat: Double?
+    let venueApproxLng: Double?
+    let venueCategory: String?
+    let venueAccess: AccessType?
+
+    var priceLabel: String {
+        if isFree { return "Free" }
+        if let c = priceFromCents { return "from \(c/100) \(currency)" }
+        return "Ticketed"
+    }
+}
+
+// MARK: - Routes (bar crawls)
+
+struct RouteSummary: Codable, Equatable, Hashable, Identifiable, Sendable {
+    let id: String
+    let slug: String
+    let title: String
+    let summary: String?
+    let cityId: String?
+    let kind: String
+    let coverUrl: String?
+    let isFree: Bool
+    let priceCents: Int
+    let currency: String
+    let productId: String?
+    let distanceM: Int?
+    let durationMin: Int?
+    let featured: Bool
+    let stopCount: Int
+
+    var priceLabel: String { isFree ? "Free" : String(format: "$%.2f", Double(priceCents) / 100.0) }
+}
+
+struct RouteStop: Codable, Equatable, Sendable {
+    let position: Int
+    let note: String?
+    let id: String
+    let slug: String
+    let teaserTitle: String
+    let teaserDescription: String
+    let approxLat: Double?
+    let approxLng: Double?
+    let primaryCategoryId: String?
+    let locked: Bool
+    let fullTitle: String?
+    let exactLat: Double?
+    let exactLng: Double?
+    let businessName: String?
+
+    var displayTitle: String { locked ? teaserTitle : (fullTitle ?? teaserTitle) }
+    var exactCoordinate: CLLocationCoordinate2D? {
+        guard let la = exactLat, let ln = exactLng else { return nil }
+        return CLLocationCoordinate2D(latitude: la, longitude: ln)
+    }
+}
+
+struct RouteDetails: Codable, Equatable, Identifiable, Sendable {
+    let id: String
+    let slug: String
+    let title: String
+    let summary: String?
+    let description: String?
+    let kind: String
+    let cityId: String?
+    let coverUrl: String?
+    let isFree: Bool
+    let priceCents: Int
+    let currency: String
+    let productId: String?
+    let distanceM: Int?
+    let durationMin: Int?
+    let featured: Bool
+    let owned: Bool
+    let stops: [RouteStop]
+
+    var priceLabel: String { isFree ? "Free" : String(format: "$%.2f", Double(priceCents) / 100.0) }
+}

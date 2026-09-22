@@ -182,3 +182,30 @@ final class SupabaseReportsRepository: ReportsRepository {
         _ = try await client.insert("reports", body: [Body(userId: session.userId, placeId: placeId, reason: reason, details: details)], as: [Row].self)
     }
 }
+
+// MARK: - Events
+
+final class SupabaseEventsRepository: EventsRepository {
+    private let client: SupabaseClient
+    init(client: SupabaseClient) { self.client = client }
+    func upcoming(cityId: String?, limit: Int) async throws -> [EventItem] {
+        var items: [URLQueryItem] = [q("select", "*"), q("order", "starts_at.asc"), q("limit", String(limit))]
+        if let c = cityId { items.append(q("city_id", "eq.\(c)")) }
+        return try await client.select("events_public", query: items, as: [EventItem].self)
+    }
+}
+
+// MARK: - Routes (bar crawls)
+
+final class SupabaseRoutesRepository: RoutesRepository {
+    private let client: SupabaseClient
+    init(client: SupabaseClient) { self.client = client }
+    func list(cityId: String?) async throws -> [RouteSummary] {
+        var items: [URLQueryItem] = [q("select", "*"), q("order", "featured.desc,title.asc")]
+        if let c = cityId { items.append(q("city_id", "eq.\(c)")) }
+        return try await client.select("routes_public", query: items, as: [RouteSummary].self)
+    }
+    func details(slug: String) async throws -> RouteDetails {
+        try await client.rpc("get_route_details", params: ["p_slug": AnyEncodable(slug)], as: RouteDetails.self)
+    }
+}

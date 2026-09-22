@@ -68,3 +68,12 @@ protocol RatingsRepository: Sendable {
 protocol ReportsRepository: Sendable {
     func report(placeId: String, reason: String, details: String?) async throws
 }
+
+protocol EventsRepository: Sendable {
+    func upcoming(cityId: String?, limit: Int) async throws -> [EventItem]
+}
+
+protocol RoutesRepository: Sendable {
+    func list(cityId: String?) async throws -> [RouteSummary]
+    func details(slug: String) async throws -> RouteDetails
+}

@@ -11,6 +11,8 @@ struct AppDestinations: ViewModifier {
                 PlacesListView(title: cat.title, query: PlaceQuery(categoryId: cat.id))
             }
             .navigationDestination(for: PlaceCollection.self) { CollectionDetailView(collection: $0) }
+            .navigationDestination(for: EventItem.self) { EventDetailView(event: $0) }
+            .navigationDestination(for: RouteSummary.self) { RouteDetailView(slug: $0.slug, summary: $0) }
     }
 }
 

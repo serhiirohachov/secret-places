@@ -17,6 +17,8 @@ final class AppEnvironment: ObservableObject {
     let saved: SavedPlacesRepository
     let ratings: RatingsRepository
     let reports: ReportsRepository
+    let events: EventsRepository
+    let routes: RoutesRepository
 
     let entitlements: SupabaseEntitlementService
     let purchases: PurchaseService
@@ -47,6 +49,8 @@ final class AppEnvironment: ObservableObject {
         self.saved = SupabaseSavedPlacesRepository(client: client, session: auth.tokens)
         self.ratings = SupabaseRatingsRepository(client: client, session: auth.tokens)
         self.reports = SupabaseReportsRepository(client: client, session: auth.tokens)
+        self.events = SupabaseEventsRepository(client: client)
+        self.routes = SupabaseRoutesRepository(client: client)
 
         let entitlements = SupabaseEntitlementService(client: client, session: auth.tokens)
         self.entitlements = entitlements

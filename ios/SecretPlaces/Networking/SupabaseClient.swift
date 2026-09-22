@@ -21,6 +21,7 @@ final class SupabaseClient: @unchecked Sendable {
         self.sessionProvider = sessionProvider
         decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .iso8601   // Postgres timestamptz
         encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
     }

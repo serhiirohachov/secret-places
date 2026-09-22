@@ -3,8 +3,11 @@ import StoreKit
 
 struct VerifyPurchaseResponse: Decodable {
     let unlocked: Bool
+    let kind: String?
     let placeId: String?
     let place: PlaceDetails?
+    let routeId: String?
+    let route: RouteDetails?
 }
 
 /// StoreKit 2 purchase layer. Verifies transactions server-side via the
@@ -76,6 +79,32 @@ final class PurchaseService: ObservableObject {
             throw AppError.purchasePending
         @unknown default:
             throw AppError.purchaseFailed("unknown")
+        }
+    }
+
+    /// Purchase a route (e.g. a bar crawl). Grants a route entitlement that
+    /// unlocks every place the route contains.
+    func purchaseRoute(routeSlug: String, productId: String) async throws -> RouteDetails? {
+        guard auth.isSignedIn else { throw AppError.notAuthenticated }
+        guard let product = await product(for: productId) else { throw AppError.purchaseFailed("product_unavailable") }
+        purchasingProductId = productId
+        defer { purchasingProductId = nil }
+        let result: Product.PurchaseResult
+        do { result = try await product.purchase() }
+        catch { throw AppError.purchaseFailed(error.localizedDescription) }
+        switch result {
+        case .success(let verification):
+            let transaction = try checkVerified(verification)
+            struct Body: Encodable { let transactionJWS: String; let routeSlug: String }
+            let resp = try await client.callFunction("verify-purchase",
+                body: Body(transactionJWS: verification.jwsRepresentation, routeSlug: routeSlug),
+                as: VerifyPurchaseResponse.self)
+            await transaction.finish()
+            await entitlements.refresh()
+            return resp.route
+        case .userCancelled: throw AppError.purchaseCancelled
+        case .pending: throw AppError.purchasePending
+        @unknown default: throw AppError.purchaseFailed("unknown")
         }
     }
 
