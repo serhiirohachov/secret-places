@@ -23,7 +23,7 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SYNC_SECRET = Deno.env.get("SYNC_SECRET") ?? "";
 
 const RA_ENDPOINT = "https://ra.co/graphql";
-const SYNCED_SOURCES = ["resident_advisor", "ics", "molodyy"]; // events we own & may retire
+const SYNCED_SOURCES = ["resident_advisor", "ics", "molodyy", "jsonld"]; // events we own & may retire
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -228,6 +228,73 @@ function slugifyId(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || crypto.randomUUID();
 }
 
+// ---- Generic schema.org JSON-LD provider (any server-rendered listing) ----
+function stripImageSuffix(u: string): string {
+  return u.replace(/\.(jpe?g|png|webp|gif)(:[^/?#]*)?/i, ".$1");
+}
+function inferKind(name: string, atType: string, fallback: string): string {
+  const n = name.toLowerCase();
+  if (atType.includes("Theater") || /вистав|театр|п['’]єс/.test(n)) return "theatre";
+  if (/stand ?up|стенд.?ап/.test(n)) return "standup";
+  if (/дитяч|для дітей|kids/.test(n)) return "kids";
+  if (/фестивал/.test(n)) return "festival";
+  if (/виставк|exhibition/.test(n)) return "exhibition";
+  if (/кіно|показ фільму|\bfilm\b/.test(n)) return "film";
+  if (atType.includes("Music") || /концерт|\blive\b|гурт|tribute/.test(n)) return "concert";
+  return fallback;
+}
+async function fromJsonLd(src: any, ctx: Ctx): Promise<EventRow[]> {
+  const url = String(src.config?.url ?? "");
+  if (!url) throw new Error("jsonld source missing config.url");
+  const html = await getText(url);
+  const blocks = [...html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1]);
+  const evs: any[] = [];
+  const walk = (o: any) => {
+    if (Array.isArray(o)) o.forEach(walk);
+    else if (o && typeof o === "object") {
+      const t = o["@type"]; const ts = Array.isArray(t) ? t.join(",") : String(t ?? "");
+      if (ts.includes("Event")) evs.push(o);
+      for (const v of Object.values(o)) walk(v);
+    }
+  };
+  for (const b of blocks) { try { walk(JSON.parse(b)); } catch { /* skip malformed block */ } }
+  const nowMs = Date.now();
+  const seen = new Set<string>();
+  const rows: EventRow[] = [];
+  for (const e of evs) {
+    const start = e.startDate ?? null;
+    if (!start || new Date(start).getTime() < nowMs - 6 * 3600e3) continue;
+    const evUrl = String(e.url ?? "");
+    const seg = evUrl.replace(/[#?].*$/, "").replace(/\/+$/, "").split("/").pop() || String(e.name ?? "");
+    const slug = `jsonld-${slugifyId(seg)}`;
+    if (seen.has(slug)) continue; seen.add(slug);
+    const loc = e.location;
+    const venue = loc && typeof loc === "object" ? (loc.name ?? null) : (typeof loc === "string" ? loc : null);
+    let img = Array.isArray(e.image) ? e.image[0] : e.image;
+    img = typeof img === "string" ? stripImageSuffix(img) : null;
+    const offers = Array.isArray(e.offers) ? e.offers[0] : e.offers;
+    const priceNum = offers && offers.price != null ? Number(offers.price) : null;
+    const atType = Array.isArray(e["@type"]) ? e["@type"].join(",") : String(e["@type"] ?? "");
+    const place = venue ? ctx.placeBySlug.get(placeSlugForVenue(String(venue)) ?? "") : null;
+    rows.push(mkEvent({
+      slug,
+      title: String(e.name ?? "").trim(),
+      description: e.description ? String(e.description).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 600) : null,
+      kind: inferKind(String(e.name ?? ""), atType, src.kind ?? "concert"),
+      starts_at: start, ends_at: e.endDate ?? null,
+      poster_url: img,
+      ticket_url: evUrl || null,
+      priceFromCents: priceNum != null && !isNaN(priceNum) && priceNum > 0 ? Math.round(priceNum * 100) : null,
+      isFree: priceNum === 0,
+      currency: offers?.priceCurrency ?? "UAH",
+      lineup: [],
+      venue_name: venue ? String(venue).trim() : (src.venue_name ?? null),
+      place, cityId: ctx.cityId, source: "jsonld",
+    }));
+  }
+  return rows;
+}
+
 // ---- shared row builder ----
 type Ctx = { cityId: string | null; placeBySlug: Map<string, any>; pages: number };
 function mkEvent(o: any): EventRow {
@@ -243,9 +310,9 @@ function mkEvent(o: any): EventRow {
     ends_at: o.ends_at ?? null,
     poster_url: o.poster_url ?? null,
     ticket_url: o.ticket_url ?? null,
-    price_from_cents: null,
-    currency: "UAH",
-    is_free: false,
+    price_from_cents: o.priceFromCents ?? null,
+    currency: o.currency ?? "UAH",
+    is_free: o.isFree ?? false,
     lineup: o.lineup ?? [],
     venue_name: o.venue_name ?? null,
     venue_lat: place?.approx_lat ?? o.venueLat ?? null,
@@ -292,6 +359,7 @@ Deno.serve(async (req) => {
       if (src.provider === "resident_advisor") rows = await fromResidentAdvisor(src, ctx);
       else if (src.provider === "ics") rows = await fromICS(src, ctx);
       else if (src.provider === "molodyy") rows = await fromMolodyy(src, ctx);
+      else if (src.provider === "jsonld") rows = await fromJsonLd(src, ctx);
       else err = `unknown provider ${src.provider}`;
     } catch (e) { err = String(e); }
     // De-dupe within a source by slug.
